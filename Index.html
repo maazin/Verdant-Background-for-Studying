@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VERDANT — Field Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --ink:#1a1f14; --paper:#f0ead6; --sage:#7a9e7e; --moss:#3d6b47;
+  --fern:#2a4a30; --gold:#c9a84c; --amber:#e8813a; --sky1:#7bbfcf;
+  --blush:#d4897a; --lilac:#9b8fc4; --cream:#f7f1e0;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1f14;}
+body{font-family:'Courier Prime',monospace;cursor:default;}
+
+#world{position:relative;width:100%;height:100%;overflow:hidden;}
+#sky-canvas{position:absolute;inset:0;z-index:0;}
+#main-canvas{position:absolute;inset:0;z-index:5;}
+
+/* JOURNAL */
+#journal{
+  position:absolute;right:0;top:0;bottom:0;width:360px;
+  background:rgba(240,234,214,0.97);border-left:3px solid var(--gold);
+  transform:translateX(100%);transition:transform 0.5s cubic-bezier(0.77,0,0.175,1);
+  pointer-events:all;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:-8px 0 40px rgba(0,0,0,0.45);z-index:20;
+}
+#journal.open{transform:translateX(0);}
+#jhead{background:var(--fern);padding:18px 22px 14px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+#jhead h2{font-family:'Playfair Display',serif;font-style:italic;color:var(--paper);font-size:21px;}
+#jhead .sub{font-size:9px;color:var(--sage);letter-spacing:.16em;text-transform:uppercase;margin-top:2px;}
+#jclose{background:none;border:none;color:rgba(240,234,214,.5);font-size:20px;cursor:pointer;line-height:1;padding:4px;transition:color .2s;}
+#jclose:hover{color:var(--gold);}
+
+#jtabs{display:flex;border-bottom:2px solid var(--gold);background:var(--cream);flex-shrink:0;}
+.jtab{flex:1;padding:9px 2px;text-align:center;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--moss);cursor:pointer;border:none;background:transparent;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:'Courier Prime',monospace;transition:all .2s;}
+.jtab.active{color:var(--fern);border-bottom-color:var(--gold);font-weight:700;}
+#jbody{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;}
+#jbody::-webkit-scrollbar{width:3px;}
+#jbody::-webkit-scrollbar-thumb{background:var(--gold);border-radius:2px;}
+.jsec{display:none;flex:1;flex-direction:column;}.jsec.active{display:flex;}
+
+/* WRITE TAB */
+#write-area{display:flex;flex-direction:column;flex:1;gap:12px;}
+#entry-title{
+  width:100%;padding:9px 12px;
+  font-family:'Playfair Display',serif;font-style:italic;font-size:16px;
+  color:var(--fern);background:transparent;border:none;border-bottom:1.5px solid rgba(201,168,76,.4);
+  outline:none;
+}
+#entry-title::placeholder{color:rgba(61,107,71,.4);font-style:italic;}
+#entry-title:focus{border-bottom-color:var(--gold);}
+#entry-body{
+  flex:1;min-height:180px;width:100%;padding:12px;
+  font-family:'Courier Prime',monospace;font-size:12px;line-height:1.85;
+  color:#3d3d30;background:rgba(255,255,255,.35);
+  border:1.5px solid rgba(201,168,76,.3);border-radius:4px;
+  outline:none;resize:none;
+}
+#entry-body::placeholder{color:rgba(61,61,48,.35);font-style:italic;}
+#entry-body:focus{border-color:var(--gold);background:rgba(255,255,255,.5);}
+#write-meta{display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--moss);letter-spacing:.08em;}
+.mood-row{display:flex;gap:6px;}
+.mood-btn{background:none;border:1.5px solid rgba(122,158,126,.3);border-radius:6px;padding:4px 8px;font-size:14px;cursor:pointer;transition:all .2s;}
+.mood-btn:hover,.mood-btn.sel{border-color:var(--gold);background:rgba(201,168,76,.12);}
+#save-btn{
+  padding:9px 18px;background:var(--fern);color:var(--paper);
+  border:none;border-radius:5px;font-family:'Courier Prime',monospace;
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;
+}
+#save-btn:hover{background:var(--moss);}
+
+/* ENTRIES TAB */
+.entry{margin-bottom:18px;padding-bottom:18px;border-bottom:1px dashed var(--gold);}
+.entry:last-child{border-bottom:none;}
+.etitle{font-family:'Playfair Display',serif;font-size:14px;color:var(--fern);margin-bottom:4px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.emood{font-size:16px;}
+.edate{font-family:'Courier Prime',monospace;font-size:9px;color:var(--sage);letter-spacing:.08em;}
+.ebody{font-size:11px;color:#3d3d30;line-height:1.85;white-space:pre-wrap;}
+.no-entries{text-align:center;color:var(--sage);font-style:italic;font-size:12px;padding:40px 0;opacity:.7;}
+.edel{margin-left:auto;background:none;border:none;color:rgba(122,158,126,.4);cursor:pointer;font-size:12px;line-height:1;padding:2px 4px;transition:color .2s;}
+.edel:hover{color:var(--blush);}
+
+/* LORE TAB */
+.lcard{background:var(--fern);border-radius:4px;padding:13px 15px;margin-bottom:12px;}
+.lcard h4{font-family:'Playfair Display',serif;font-style:italic;color:var(--gold);font-size:13px;margin-bottom:5px;}
+.lcard p{font-size:11px;color:#b8d4bb;line-height:1.7;}
+
+/* TITLE */
+#title-ui{position:absolute;top:14px;left:24px;pointer-events:none;z-index:15;}
+#title-ui h1{font-family:'Playfair Display',serif;font-style:italic;font-size:26px;color:var(--gold);text-shadow:0 2px 18px rgba(201,168,76,.4);line-height:1;}
+#title-ui .tag{font-size:8px;color:var(--sage);letter-spacing:.2em;text-transform:uppercase;margin-top:2px;}
+
+/* JOURNAL BUTTON */
+#jbtn{position:absolute;right:18px;top:14px;pointer-events:all;z-index:15;background:rgba(26,31,20,.88);border:1px solid rgba(201,168,76,.35);border-radius:9px;padding:9px 16px;color:var(--gold);font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(10px);transition:all .2s;display:flex;align-items:center;gap:7px;}
+#jbtn:hover{background:rgba(42,74,48,.9);border-color:var(--gold);}
+.ndot{width:7px;height:7px;background:var(--amber);border-radius:50%;display:none;animation:blink 1.4s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* MUSIC */
+#mbtn{position:absolute;right:122px;top:14px;pointer-events:all;z-index:15;background:rgba(26,31,20,.88);border:1px solid rgba(122,158,126,.35);border-radius:9px;padding:9px 16px;color:var(--sage);font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(10px);transition:all .2s;display:flex;align-items:center;gap:7px;}
+#mbtn:hover{background:rgba(42,74,48,.9);border-color:var(--gold);color:var(--paper);}
+#mbtn.active{color:var(--gold);border-color:rgba(201,168,76,.55);box-shadow:0 0 0 3px rgba(201,168,76,.12);}
+.mdot{width:7px;height:7px;background:var(--sage);border-radius:50%;display:none;animation:blink 1.8s ease-in-out infinite;}
+
+/* SEASON BAR */
+#sbar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:15;display:flex;align-items:center;gap:9px;background:rgba(26,31,20,.8);border:1px solid rgba(201,168,76,.2);border-radius:18px;padding:6px 16px;font-size:9px;color:var(--sage);letter-spacing:.12em;text-transform:uppercase;backdrop-filter:blur(6px);}
+#sbar .sc{color:var(--gold);}
+</style>
+</head>
+<body>
+<div id="world">
+  <canvas id="sky-canvas"></canvas>
+  <canvas id="main-canvas"></canvas>
+
+  <!-- TITLE -->
+  <div id="title-ui"><h1>Verdant</h1><div class="tag">a solarpunk world</div></div>
+
+  <!-- JOURNAL BUTTON -->
+  <button id="mbtn" aria-pressed="true"><span>♪ Music</span><span class="mdot" id="mdot"></span></button>
+  <button id="jbtn"><span>📖 Journal</span><span class="ndot" id="ndot"></span></button>
+
+  <!-- JOURNAL PANEL -->
+  <div id="journal">
+    <div id="jhead">
+      <div>
+        <h2>Field Journal</h2>
+        <div class="sub">Chronicles of the Commons</div>
+      </div>
+      <button id="jclose" title="Close journal">✕</button>
+    </div>
+    <div id="jtabs">
+      <button class="jtab active" data-tab="write">Write</button>
+      <button class="jtab" data-tab="entries">Entries</button>
+      <button class="jtab" data-tab="lore">Lore</button>
+    </div>
+    <div id="jbody">
+
+      <!-- WRITE -->
+      <div class="jsec active" id="tab-write">
+        <div id="write-area">
+          <input id="entry-title" type="text" placeholder="Give this entry a title…" maxlength="80" autocomplete="off" spellcheck="true">
+          <textarea id="entry-body" placeholder="What are you thinking about today? There is no wrong move here — only growth." spellcheck="true"></textarea>
+          <div id="write-meta">
+            <div class="mood-row" id="mood-row">
+              <button class="mood-btn" data-mood="🌱">🌱</button>
+              <button class="mood-btn" data-mood="☀️">☀️</button>
+              <button class="mood-btn" data-mood="🌧️">🌧️</button>
+              <button class="mood-btn" data-mood="🌀">🌀</button>
+              <button class="mood-btn" data-mood="✨">✨</button>
+              <button class="mood-btn" data-mood="🌙">🌙</button>
+            </div>
+            <button id="save-btn">Save entry</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENTRIES -->
+      <div class="jsec" id="tab-entries">
+        <div id="entries-list"><p class="no-entries">Your journal is empty.<br>Write your first entry.</p></div>
+      </div>
+
+      <!-- LORE -->
+      <div class="jsec" id="tab-lore">
+        <div class="lcard"><h4>What is Solarpunk?</h4><p>Solarpunk imagines a world where humanity lives in harmony with nature — not by retreating from technology, but by redesigning it around ecological and social values. Solar power, mutual aid, community gardens, and radical hope are its pillars.</p></div>
+        <div class="lcard"><h4>The Philosophy of Verdant</h4><p>In this world, abundance is not extracted but cultivated. Every seed you plant, every bond you form, every story you leave behind becomes part of the land's living memory. The world grows richer simply by being tended.</p></div>
+        <div class="lcard"><h4>On Community</h4><p>Solarpunk rejects the isolation of capitalism. When neighbours share tools, skills, and food, everyone flourishes. Bonds are not just emotional — they are infrastructure.</p></div>
+        <div class="lcard"><h4>On Technology</h4><p>The wind turbine is not ugly. The solar panel is not cold. When we design technology that serves life, it becomes beautiful — woven into rooftops, painted in murals, humming beneath gardens.</p></div>
+        <div class="lcard"><h4>On Stories</h4><p>Solarpunk is above all a genre of hopeful fiction. To write in this journal is to practice the art form itself — inscribing a possible future into the present.</p></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SEASON BAR -->
+  <div id="sbar"><span id="dni">🌅</span><span id="slabel" class="sc">Spring</span><span>·</span><span id="tlabel">Dawn</span></div>
+</div>
+
+<script>
+const W=innerWidth,H=innerHeight;
+const skyC=document.getElementById('sky-canvas'),skyX=skyC.getContext('2d');
+skyC.width=W;skyC.height=H;
+const mc=document.getElementById('main-canvas'),ctx=mc.getContext('2d');
+mc.width=W;mc.height=H;
+
+const GROUND_Y=H*0.70;
+const startTime=Date.now();
+
+const G={time:0.1,season:0,parts:[],journalOpen:false};
+const A={ctx:null,master:null,filter:null,delay:null,feedback:null,wet:null,loopTimer:null,enabled:true,started:false};
+
+const SONG={
+  bpm:64,
+  progression:[
+    {root:261.63,notes:[0,4,7,11]},
+    {root:196.00,notes:[0,5,7,10]},
+    {root:220.00,notes:[0,3,7,10]},
+    {root:174.61,notes:[0,4,7,9]},
+  ],
+  melody:[12,11,7,9,7,4,5,4,7,9,11,12,11,9,7,4],
+};
+
+// ── COLOUR HELPERS ─────────────────────────────────────
+const SC=[
+  ['#1c3a5c','#3a7a6a','#2a4a30'],
+  ['#1a3060','#3a8a5a','#1e4230'],
+  ['#2a2820','#6a4a1a','#3a2210'],
+  ['#1a2030','#2a3a5a','#1a2a38'],
+];
+function lerp(a,b,t){
+  const ah=a.replace('#',''),bh=b.replace('#','');
+  const pr=n=>parseInt(n,16);
+  const r=x=>x.toString(16).padStart(2,'0');
+  const ar=pr(ah.slice(0,2)),ag=pr(ah.slice(2,4)),ab=pr(ah.slice(4,6));
+  const br=pr(bh.slice(0,2)),bg=pr(bh.slice(2,4)),bb=pr(bh.slice(4,6));
+  return`#${r(Math.round(ar+(br-ar)*t))}${r(Math.round(ag+(bg-ag)*t))}${r(Math.round(ab+(bb-ab)*t))}`;
+}
+
+// ── MUSIC ─────────────────────────────────────────────
+function setMusicUI(on){
+  const btn=document.getElementById('mbtn');
+  document.getElementById('mdot').style.display=on?'block':'none';
+  btn.classList.toggle('active',on);
+  btn.setAttribute('aria-pressed',on?'true':'false');
+  btn.querySelector('span').textContent=on?'♪ Music On':'♪ Music Off';
+}
+function stopMusic(){
+  A.enabled=false;
+  clearTimeout(A.loopTimer);
+  if(A.master&&A.ctx)A.master.gain.setTargetAtTime(0,A.ctx.currentTime,.04);
+  setMusicUI(false);
+}
+function noteToFreq(root,semitone){
+  return root*Math.pow(2,semitone/12);
+}
+function pluck(freq,start,dur,shape,gain,detune=0){
+  if(!A.ctx||!A.master)return;
+  const osc=A.ctx.createOscillator();
+  const amp=A.ctx.createGain();
+  const filt=A.ctx.createBiquadFilter();
+  osc.type=shape;
+  osc.frequency.setValueAtTime(freq,start);
+  osc.detune.setValueAtTime(detune,start);
+  filt.type='lowpass';
+  filt.frequency.setValueAtTime(Math.max(520,freq*5),start);
+  amp.gain.setValueAtTime(0.0001,start);
+  amp.gain.exponentialRampToValueAtTime(gain,start+0.08);
+  amp.gain.exponentialRampToValueAtTime(0.0001,start+dur);
+  osc.connect(filt).connect(amp).connect(A.filter);
+  osc.start(start);
+  osc.stop(start+dur+0.05);
+}
+function schedulePhrase(startAt){
+  if(!A.ctx||!A.enabled)return;
+  const beat=60/SONG.bpm;
+  const bar=beat*2;
+  SONG.progression.forEach((chord,idx)=>{
+    const t=startAt+idx*bar;
+    chord.notes.forEach((step,n)=>{
+      const freq=noteToFreq(chord.root,step);
+      const shape=n===0?'triangle':'sine';
+      const gain=n===0?0.045:0.03;
+      pluck(freq,t+0.02*n,bar*1.85,shape,gain,n*3);
+    });
+    pluck(chord.root/2,t,bar*1.8,'sine',0.02,-7);
+    const melodyStep=SONG.melody[(idx*4)%SONG.melody.length];
+    pluck(noteToFreq(chord.root*2,melodyStep),t+beat*1.35,beat*0.85,'sine',0.018,6);
+    if(idx%2===0){
+      pluck(noteToFreq(chord.root*4,12),t+beat*1.7,beat*0.45,'triangle',0.008,-10);
+    }
+  });
+}
+function startMusic(){
+  if(!A.enabled)return;
+  if(!A.ctx){
+    const AC=window.AudioContext||window.webkitAudioContext;
+    A.ctx=new AC();
+    A.master=A.ctx.createGain();
+    A.filter=A.ctx.createBiquadFilter();
+    A.delay=A.ctx.createDelay(1.4);
+    A.feedback=A.ctx.createGain();
+    A.wet=A.ctx.createGain();
+    A.filter.type='lowpass';
+    A.filter.frequency.value=1800;
+    A.master.gain.value=0.11;
+    A.delay.delayTime.value=0.24;
+    A.feedback.gain.value=0.24;
+    A.wet.gain.value=0.18;
+    A.master.connect(A.ctx.destination);
+    A.filter.connect(A.delay);
+    A.delay.connect(A.feedback);
+    A.feedback.connect(A.delay);
+    A.delay.connect(A.wet);
+    A.wet.connect(A.ctx.destination);
+    A.filter.connect(A.master);
+  }
+  A.master.gain.cancelScheduledValues(A.ctx.currentTime);
+  A.master.gain.setValueAtTime(0.11,A.ctx.currentTime);
+  A.ctx.resume();
+  clearTimeout(A.loopTimer);
+  const loopMs=(60/SONG.bpm)*SONG.progression.length*2*1000;
+  const schedule=()=>{
+    if(!A.enabled||!A.ctx)return;
+    const startAt=A.ctx.currentTime+0.08;
+    schedulePhrase(startAt);
+    A.loopTimer=setTimeout(schedule,loopMs-120);
+  };
+  schedule();
+  setMusicUI(true);
+  A.started=true;
+}
+function toggleMusic(){
+  if(A.enabled)stopMusic();
+  else{A.enabled=true;startMusic();}
+}
+
+// ── SKY ────────────────────────────────────────────────
+function drawSky(){
+  const t=G.time,sc=SC[G.season];
+  let top,hor,bot;
+  if(t<.25){const p=t/.25;top=lerp('#0a0f18','#1c3a5c',p);hor=lerp('#1a0f05','#e8813a',p);bot=lerp('#0a0a05','#2a4a30',p);}
+  else if(t<.5){const p=(t-.25)/.25;top=lerp('#1c3a5c',sc[0],p);hor=lerp('#e8813a',sc[1],p);bot=lerp('#2a4a30',sc[2],p);}
+  else if(t<.75){const p=(t-.5)/.25;top=lerp(sc[0],'#1a1030',p);hor=lerp(sc[1],'#c9502a',p);bot=lerp(sc[2],'#1a2820',p);}
+  else{const p=(t-.75)/.25;top=lerp('#1a1030','#04080c',p);hor=lerp('#c9502a','#0a1020',p);bot=lerp('#1a2820','#0a1210',p);}
+
+  const g=skyX.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,top);g.addColorStop(.5,hor);g.addColorStop(1,bot);
+  skyX.fillStyle=g;skyX.fillRect(0,0,W,H);
+
+  // Stars
+  if(t>.6||t<.15){
+    const sa=t>.6?Math.min(1,(t-.6)/.15):Math.min(1,(.15-t)/.1);
+    skyX.save();
+    for(let i=0;i<100;i++){
+      const sx=((i*137.5)%100)/100*W,sy=((i*73.1)%75)/100*H*.6,sr=.4+((i*53)%30)/100;
+      const tw=.4+.6*Math.abs(Math.sin(Date.now()*.001+i*.7));
+      skyX.globalAlpha=sa*tw;
+      skyX.beginPath();skyX.arc(sx,sy,sr,0,Math.PI*2);
+      skyX.fillStyle='#fff';skyX.fill();
+    }
+    skyX.restore();
+  }
+
+  // Sun / Moon
+  const cx2=Math.sin(t*Math.PI*2-Math.PI/2)*W*.38+W*.5;
+  const cy2=Math.cos(t*Math.PI*2)*H*.32+H*.28;
+  if(t>.1&&t<.9){
+    const a=t<.15?(t-.1)/.05:t>.85?(0.9-t)/.05:1;
+    skyX.save();skyX.globalAlpha=a;
+    const sg=skyX.createRadialGradient(cx2,cy2,2,cx2,cy2,55);
+    sg.addColorStop(0,'#ffe88a');sg.addColorStop(.3,'#f5c842');
+    sg.addColorStop(.7,'rgba(248,180,60,.3)');sg.addColorStop(1,'rgba(248,180,60,0)');
+    skyX.fillStyle=sg;skyX.fillRect(0,0,W,H);
+    skyX.beginPath();skyX.arc(cx2,cy2,16,0,Math.PI*2);
+    skyX.fillStyle='#ffe066';skyX.fill();
+    skyX.restore();
+  } else {
+    const a=t<.1?(.1-t)/.1:(t-.9)/.1;
+    skyX.save();skyX.globalAlpha=Math.max(0,a);
+    skyX.beginPath();skyX.arc(cx2,cy2,13,0,Math.PI*2);
+    skyX.fillStyle='#e8e0c8';skyX.fill();
+    skyX.restore();
+  }
+
+  // Mountains
+  skyX.save();
+  skyX.fillStyle=G.season===2?'#2a1a08':G.season===3?'#1a2030':'#1a2a1a';
+  const pts=[[0,.82],[.07,.71],[.14,.78],[.21,.65],[.29,.73],[.37,.61],[.46,.71],[.54,.63],[.62,.72],[.7,.67],[.78,.74],[.86,.68],[.93,.75],[1,.81]];
+  skyX.beginPath();skyX.moveTo(0,H);
+  pts.forEach(([x,y])=>skyX.lineTo(x*W,y*H));
+  skyX.lineTo(W,H);skyX.closePath();skyX.fill();
+  skyX.restore();
+}
+
+// ── GROUND ─────────────────────────────────────────────
+function drawGround(){
+  const gc=[
+    ['#2a4a30','#1e3526'],['#1e4230','#163020'],
+    ['#3a2a10','#2a1a08'],['#1a2838','#0e1a24'],
+  ][G.season];
+  const gg=ctx.createLinearGradient(0,GROUND_Y,0,H);
+  gg.addColorStop(0,gc[0]);gg.addColorStop(1,gc[1]);
+  ctx.fillStyle=gg;ctx.fillRect(0,GROUND_Y,W,H-GROUND_Y);
+
+  // Grass fringe
+  ctx.save();
+  ctx.strokeStyle=G.season===2?'#5a4020':G.season===3?'#2a3a48':'#3d6b47';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let x=0;x<W;x+=3+Math.random()*4){
+    const h2=4+Math.sin(x*.04)*5+Math.random()*7;
+    ctx.moveTo(x,GROUND_Y);ctx.lineTo(x+Math.random()*2,GROUND_Y-h2);
+  }
+  ctx.stroke();ctx.restore();
+
+  // Stone path
+  ctx.save();
+  ctx.fillStyle='rgba(80,65,40,.28)';
+  const pw=50,px=W*.5-25;
+  ctx.beginPath();ctx.moveTo(px,GROUND_Y);
+  ctx.lineTo(px+16,H);ctx.lineTo(px+pw-16,H);ctx.lineTo(px+pw,GROUND_Y);
+  ctx.closePath();ctx.fill();
+  for(let i=0;i<9;i++){
+    const sy=GROUND_Y+28+i*(H-GROUND_Y-20)/9;
+    ctx.beginPath();ctx.ellipse(W*.5+Math.sin(i)*7,sy,14,6,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(70,55,30,.35)';ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── AMBIENT FLOATERS ───────────────────────────────────
+const AMB=[];
+function initAmb(){
+  const es=['🍃','✨','🌸','⭐','💫','🌾'];
+  for(let i=0;i<22;i++){AMB.push({
+    x:Math.random()*W,y:GROUND_Y+Math.random()*(H-GROUND_Y)*.5,
+    e:es[i%es.length],sp:.15+Math.random()*.35,dr:(Math.random()-.5)*.4,
+    ph:Math.random()*Math.PI*2,al:.25+Math.random()*.4,sz:9+Math.random()*8,
+  });}
+}initAmb();
+function drawAmb(){
+  AMB.forEach(a=>{
+    a.y-=a.sp;a.x+=Math.sin(Date.now()*.001+a.ph)*.35+a.dr;
+    if(a.y<GROUND_Y-80){a.y=H-5;a.x=Math.random()*W;}
+    if(a.x<0)a.x=W;if(a.x>W)a.x=0;
+    ctx.save();ctx.globalAlpha=a.al*(.6+.4*Math.sin(Date.now()*.002+a.ph));
+    ctx.font=`${a.sz}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(a.e,a.x,a.y);ctx.restore();
+  });
+}
+
+// ── TIME ───────────────────────────────────────────────
+const SPEED=0.000035;
+const TNAMES=[[0,'Dawn','🌅'],[.15,'Morning','☀️'],[.35,'Midday','🌞'],[.55,'Dusk','🌇'],[.7,'Evening','🌆'],[.8,'Night','🌙'],[.9,'Midnight','⭐']];
+function updateTime(){
+  G.time=(G.time+SPEED)%1;
+  const mins=Math.floor((Date.now()-startTime)/60000);
+  G.season=Math.floor(mins/3)%4;
+  let tn=TNAMES[0];
+  TNAMES.forEach(x=>{if(G.time>=x[0])tn=x;});
+  document.getElementById('dni').textContent=tn[2];
+  document.getElementById('slabel').textContent=['Spring','Summer','Autumn','Winter'][G.season];
+  document.getElementById('tlabel').textContent=tn[1];
+}
+
+// ── MAIN LOOP ──────────────────────────────────────────
+function loop(){
+  ctx.clearRect(0,0,W,H);skyX.clearRect(0,0,W,H);
+  updateTime();drawSky();drawGround();drawAmb();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ── JOURNAL LOGIC ─────────────────────────────────────
+let entries=[];
+let selectedMood='';
+
+// Load from storage
+(async()=>{
+  try{
+    const r=await window.storage.get('verdant-journal-entries');
+    if(r){entries=JSON.parse(r.value);renderEntries();}
+  }catch(e){}
+})();
+
+// Mood buttons
+document.querySelectorAll('.mood-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const m=b.dataset.mood;
+    if(selectedMood===m){selectedMood='';b.classList.remove('sel');}
+    else{document.querySelectorAll('.mood-btn').forEach(x=>x.classList.remove('sel'));selectedMood=m;b.classList.add('sel');}
+  });
+});
+
+// Save entry
+document.getElementById('save-btn').addEventListener('click',()=>{
+  const title=document.getElementById('entry-title').value.trim();
+  const body=document.getElementById('entry-body').value.trim();
+  if(!body)return;
+  const entry={
+    id:Date.now(),
+    title:title||'Untitled',
+    body,
+    mood:selectedMood,
+    date:new Date().toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'}),
+    time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+  };
+  entries.unshift(entry);
+  saveEntries();
+  renderEntries();
+  // Clear form
+  document.getElementById('entry-title').value='';
+  document.getElementById('entry-body').value='';
+  document.querySelectorAll('.mood-btn').forEach(x=>x.classList.remove('sel'));
+  selectedMood='';
+  // Switch to entries tab
+  switchTab('entries');
+  // Notification dot
+  document.getElementById('ndot').style.display='block';
+});
+
+async function saveEntries(){
+  try{await window.storage.set('verdant-journal-entries',JSON.stringify(entries));}catch(e){}
+}
+
+function renderEntries(){
+  const list=document.getElementById('entries-list');
+  if(!entries.length){
+    list.innerHTML='<p class="no-entries">Your journal is empty.<br>Write your first entry.</p>';
+    return;
+  }
+  list.innerHTML=entries.map(e=>`
+    <div class="entry" data-id="${e.id}">
+      <div class="etitle">
+        ${e.mood?`<span class="emood">${e.mood}</span>`:''}
+        ${e.title}
+        <button class="edel" title="Delete entry" data-id="${e.id}">✕</button>
+      </div>
+      <div class="edate">${e.date} · ${e.time}</div>
+      <p class="ebody" style="margin-top:8px">${e.body}</p>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.edel').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=parseInt(btn.dataset.id);
+      entries=entries.filter(e=>e.id!==id);
+      saveEntries();
+      renderEntries();
+    });
+  });
+}
+
+// Tabs
+function switchTab(tab){
+  document.querySelectorAll('.jtab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.jsec').forEach(s=>s.classList.toggle('active',s.id==='tab-'+tab));
+  if(tab==='entries') document.getElementById('ndot').style.display='none';
+}
+document.querySelectorAll('.jtab').forEach(t=>{
+  t.addEventListener('click',()=>switchTab(t.dataset.tab));
+});
+
+document.getElementById('mbtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  toggleMusic();
+});
+
+// Open / close journal
+document.getElementById('jbtn').addEventListener('click',()=>{
+  G.journalOpen=!G.journalOpen;
+  document.getElementById('journal').classList.toggle('open',G.journalOpen);
+});
+document.getElementById('jclose').addEventListener('click',()=>{
+  G.journalOpen=false;
+  document.getElementById('journal').classList.remove('open');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='j'||e.key==='J'){
+    G.journalOpen=!G.journalOpen;
+    document.getElementById('journal').classList.toggle('open',G.journalOpen);
+  }
+  if(e.key==='m'||e.key==='M')toggleMusic();
+});
+document.addEventListener('pointerdown',()=>{if(A.enabled&&!A.started)startMusic();},{passive:true});
+
+setMusicUI(true);
+</script>
+</body>
+</html>
